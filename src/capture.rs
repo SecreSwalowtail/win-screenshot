@@ -9,9 +9,8 @@ use windows::Win32::Storage::Xps::{PrintWindow, PRINT_WINDOW_FLAGS, PW_CLIENTONL
 use windows::Win32::UI::HiDpi::{SetProcessDpiAwareness, PROCESS_PER_MONITOR_DPI_AWARE};
 use windows::Win32::UI::WindowsAndMessaging::{
     GetSystemMetrics, PW_RENDERFULLCONTENT, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN,
-    SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN,
+    SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN, GetWindowRect
 };
-
 use crate::wrappers::{CreatedHdc, Hbitmap, Hdc, Rect};
 
 #[derive(Debug)]
@@ -47,6 +46,15 @@ pub struct RgbBuf {
     pub height: u32,
 }
 
+pub struct GetWindowRect {
+    pub left: i32,
+    pub top: i32,
+    pub right: i32,
+    pub bottom: i32,
+    pub width: i32,
+    pub height: i32
+}
+
 pub fn capture_window(hwnd: isize) -> Result<RgbBuf, windows::core::Error> {
     capture_window_ex(hwnd, Using::PrintWindow, Area::Full, None, None)
 }
@@ -60,6 +68,8 @@ pub fn capture_window_ex(
 ) -> Result<RgbBuf, windows::core::Error> {
     let hwnd = HWND(hwnd);
 
+    let mut rect_vector = unsafe {std::mem::zeroed()}; // Initialize RECT struct with zeros
+
     unsafe {
         #[allow(unused_must_use)]
         {
@@ -68,7 +78,6 @@ pub fn capture_window_ex(
 
         let hdc_screen = Hdc::get_dc(hwnd)?;
 
-        // BitBlt support only ClientOnly
         let rect = match (using, area) {
             (Using::PrintWindow, Area::Full) => Rect::get_window_rect(hwnd),
             (Using::BitBlt, _) | (Using::PrintWindow, Area::ClientOnly) => {
@@ -153,6 +162,9 @@ pub fn capture_window_ex(
             return Err(windows::core::Error::new(E_FAIL, "GetDIBits error"));
         }
         buf.chunks_exact_mut(4).for_each(|c| c.swap(0, 2));
+        let window_position = GetWindowRect(hwnd, rect_vector).unwrap();
+        println!("{:?}", window_position);
+
         Ok(RgbBuf {
             pixels: buf,
             width: w as u32,
