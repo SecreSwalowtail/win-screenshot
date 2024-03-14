@@ -44,15 +44,15 @@ pub struct RgbBuf {
     pub pixels: Vec<u8>,
     pub width: u32,
     pub height: u32,
+    pub x_position: u32,
+    pub y_position: u32
 }
 
-pub struct GetWindowRect {
-    pub left: i32,
-    pub top: i32,
-    pub right: i32,
-    pub bottom: i32,
-    pub width: i32,
-    pub height: i32
+#[derive(Debug)]
+pub struct RgbBuf2 {
+    pub pixels: Vec<u8>,
+    pub width: u32,
+    pub height: u32,
 }
 
 pub fn capture_window(hwnd: isize) -> Result<RgbBuf, windows::core::Error> {
@@ -67,8 +67,6 @@ pub fn capture_window_ex(
     crop_wh: Option<[i32; 2]>,
 ) -> Result<RgbBuf, windows::core::Error> {
     let hwnd = HWND(hwnd);
-
-    let mut rect_vector = unsafe {std::mem::zeroed()}; // Initialize RECT struct with zeros
 
     unsafe {
         #[allow(unused_must_use)]
@@ -162,18 +160,18 @@ pub fn capture_window_ex(
             return Err(windows::core::Error::new(E_FAIL, "GetDIBits error"));
         }
         buf.chunks_exact_mut(4).for_each(|c| c.swap(0, 2));
-        let window_position = GetWindowRect(hwnd, rect_vector).unwrap();
-        println!("{:?}", window_position);
 
         Ok(RgbBuf {
             pixels: buf,
             width: w as u32,
             height: h as u32,
+            x_position: rect.left as u32,
+            y_position: rect.top as u32
         })
     }
 }
 
-pub fn capture_display() -> Result<RgbBuf, WSError> {
+pub fn capture_display() -> Result<RgbBuf2, WSError> {
     unsafe {
         // win 8.1 temporary DPI aware
         #[allow(unused_must_use)]
@@ -262,7 +260,7 @@ pub fn capture_display() -> Result<RgbBuf, WSError> {
         DeleteObject(hbmp);
         ReleaseDC(HWND::default(), hdc_screen);
 
-        Ok(RgbBuf {
+        Ok(RgbBuf2 {
             pixels: buf,
             width: width as u32,
             height: height as u32,
